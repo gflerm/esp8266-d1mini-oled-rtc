@@ -45,12 +45,15 @@ The SDK must be installed separately and exposed through `IDF_PATH`.
 From PowerShell:
 
 ```powershell
+$env:IDF_PATH = "C:\path\to\ESP8266_RTOS_SDK"
+$env:ESP8266_PYTHON = "C:\path\to\python.exe"
+$env:ESP8266_TOOL_ROOT = "C:\path\to\Espressif\tools\tools"
 . .\export.ps1
 idf.py build
-idf.py -p COMx flash monitor
+idf.py -p COMxx flash monitor
 ```
 
-Replace `COMxx` with the board's serial port.
+Replace the example paths and `COMxx` with your local values.
 
 Convenience scripts are also provided:
 

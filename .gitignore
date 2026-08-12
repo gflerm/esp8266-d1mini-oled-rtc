@@ -4,3 +4,4 @@ sdkconfig.old
 *.pyc
 .directory
 image/
+project.md

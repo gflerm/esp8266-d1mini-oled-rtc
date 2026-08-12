@@ -5,11 +5,29 @@
 #   idf.py build
 #   idf.py -p COMxx flash monitor
 
-$env:IDF_PATH = "C:\esp\ESP8266_RTOS_SDK"
-$python = "C:\Espressif\tools\python\esp8266\Scripts\python.exe"
-if (-not (Test-Path $python)) { throw "Python venv not found at $python" }
+if ([string]::IsNullOrWhiteSpace($env:IDF_PATH)) {
+    throw "Set IDF_PATH to your ESP8266_RTOS_SDK directory before sourcing export.ps1."
+}
+if (-not (Test-Path $env:IDF_PATH)) {
+    throw "ESP8266_RTOS_SDK not found at $env:IDF_PATH"
+}
 
-$toolRoot = "C:\Espressif\tools\tools"
+$python = $env:ESP8266_PYTHON
+if ([string]::IsNullOrWhiteSpace($python) -and $env:IDF_TOOLS_PATH) {
+    $python = Join-Path $env:IDF_TOOLS_PATH "python\esp8266\Scripts\python.exe"
+}
+if ([string]::IsNullOrWhiteSpace($python) -or -not (Test-Path $python)) {
+    throw "Set ESP8266_PYTHON to the ESP8266 Python executable."
+}
+
+$toolRoot = $env:ESP8266_TOOL_ROOT
+if ([string]::IsNullOrWhiteSpace($toolRoot) -and $env:IDF_TOOLS_PATH) {
+    $toolRoot = Join-Path $env:IDF_TOOLS_PATH "tools"
+}
+if ([string]::IsNullOrWhiteSpace($toolRoot) -or -not (Test-Path $toolRoot)) {
+    throw "Set ESP8266_TOOL_ROOT to the directory containing the installed ESP8266 tools."
+}
+
 $env:PATH = @(
     "$toolRoot\xtensa-lx106-elf\esp-2020r3-49-gd5524c1-8.4.0\xtensa-lx106-elf\bin",
     "$toolRoot\cmake\3.13.4\bin",

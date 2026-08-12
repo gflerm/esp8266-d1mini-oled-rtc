@@ -1,0 +1,27 @@
+menu "Application Wi-Fi and time"
+
+config APP_ENABLE_SD
+    bool "Enable SD card logging"
+    default n
+    help
+        Enable SD card initialization and CSV logging. Leave disabled when no
+        card is inserted to avoid mount diagnostics and logging activity.
+
+config APP_WIFI_SSID
+    string "Wi-Fi SSID"
+    default ""
+    help
+        Wi-Fi network name used for station mode and NTP synchronization.
+
+config APP_WIFI_PASSWORD
+    string "Wi-Fi password"
+    default ""
+    help
+        Wi-Fi password. This value is stored in the local sdkconfig file.
+
+config APP_WIFI_MAX_RETRY
+    int "Maximum Wi-Fi connection retries"
+    range 1 100
+    default 20
+
+endmenu

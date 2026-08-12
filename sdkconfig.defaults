@@ -1,0 +1,5 @@
+# Wemos D1 mini ships with 4 MB SPI flash.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+
+# Keep FAT timestamps meaningful once the RTC has set the system clock.
+CONFIG_ESP8266_TIME_SYSCALL_USE_FRC1=y

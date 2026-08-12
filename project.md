@@ -1,205 +1,218 @@
-# esp8266oledrtc — Project document
+# ESP8266 OLED & RTC D1 Mini
 
-> Living document. Update it whenever hardware, wiring, build steps, or APIs change.
+> Living project document. Update this file when hardware, wiring, build steps, or APIs change.
 
-## Purpose
+This project is licensed under the MIT License. See [`LICENSE`](LICENSE).
 
-Firmware for a **Wemos/LOLIN D1 mini** (ESP8266 4 MB flash) that:
+## Overview
 
-- reads the current date/time from the RTC,
-- shows a centered date and time on the 0.66" SSD1315 OLED,
-- optionally logs timestamped temperature readings to a microSD card as CSV.
+Firmware for a Wemos/LOLIN D1 mini ESP8266 with:
 
-A "headless clock + datalogger" reference project.
+- a 0.66-inch SSD1315 64x48 OLED shield,
+- a DS3231 RTC,
+- an optional D1 mini RTC + SD shield.
+
+The current default display shows a centered date and time. SD initialization and CSV logging are optional and disabled by default.
 
 ## Hardware
 
-| Item                 | Part / interface            | Connection                                             |
-| -------------------- | --------------------------- | ------------------------------------------------------ |
-| MCU                  | Wemos D1 mini, ESP8266      | —                                                      |
-| Display              | 0.66" 64×48 SSD1315, I2C (D1 mini OLED shield) | SDA → GPIO4 (D2), SCL → GPIO5 (D1), addr `0x3C` (or `0x3D`) |
-| Clock & datalogging  | "D1 mini RTC + SD" shield   | —                                                      |
-| · RTC                | DS3231 @ `0x68` / DS1307 @ `0x68` / PCF8563 @ `0x51` | shares the I2C bus (GPIO4/GPIO5) |
-| · microSD            | SPI (bit-banged)            | CS → GPIO15 (D8), SCK → GPIO14 (D5), MOSI → GPIO13 (D7), MISO → GPIO12 (D6) |
+| Device | Details | Connection |
+| --- | --- | --- |
+| MCU | Wemos/LOLIN D1 mini, ESP8266, 4 MB flash | - |
+| OLED | SSD1315, 64x48, I2C address `0x3C` or `0x3D` | SDA GPIO4/D2, SCL GPIO5/D1 |
+| RTC | DS3231 at I2C address `0x68` | Shared I2C bus |
+| RTC alternatives | DS1307 at `0x68`, PCF8563 at `0x51` | Supported by the RTC component |
+| microSD | SPI, optional | CS GPIO15/D8, SCK GPIO14/D5, MOSI GPIO13/D7, MISO GPIO12/D6 |
 
-### Pin map (D1 mini → GPIO)
+### Pin map
 
-| Shell label | GPIO |
-| ----------- | ---- |
-| D1 / SCL    | 5    |
-| D2 / SDA    | 4    |
-| D5 / SCK    | 14   |
-| D6 / MISO   | 12   |
-| D7 / MOSI   | 13   |
-| D8 / CS     | 15   |
+| D1 mini pin | GPIO | Function |
+| --- | ---: | --- |
+| D1 | 5 | I2C SCL |
+| D2 | 4 | I2C SDA |
+| D5 | 14 | SD SCK |
+| D6 | 12 | SD MISO |
+| D7 | 13 | SD MOSI |
+| D8 | 15 | SD CS |
 
-> `GPIO15` is a boot-strapping pin held **low during reset**; it is only configured as
-> an output (SD card-select) *after* boot. This is standard for D1 mini SD shields.
+`GPIO15` is a boot-strapping pin held low during reset. It is configured as SD chip-select only after boot.
 
-## SDK & toolchain
+## SDK
 
-**ESP-IDF v6.x does NOT support the ESP8266.** This project builds with Espressif's
-official **ESP8266_RTOS_SDK v3.4** (`C:\esp\ESP8266_RTOS_SDK`).
+Modern ESP-IDF does not support the ESP8266. This project uses Espressif's official:
 
-Installed tooling (Windows):
+```text
+ESP8266_RTOS_SDK v3.4
+C:\esp\ESP8266_RTOS_SDK
+```
 
-| Tool                 | Location                                                            |
-| -------------------- | ------------------------------------------------------------------- |
-| Xtensa LX106 GCC     | `C:\Espressif\tools\tools\xtensa-lx106-elf\esp-2020r3-49-gd5524c1-8.4.0\xtensa-lx106-elf\bin` |
-| CMake 3.13.4         | `C:\Espressif\tools\tools\cmake\3.13.4\bin`                         |
-| Ninja 1.9.0          | `C:\Espressif\tools\tools\ninja\1.9.0`                              |
-| mconf (menuconfig)   | `C:\Espressif\tools\tools\mconf\v4.6.0.0-idf-20190628`              |
-| Python venv          | `C:\Espressif\tools\python\esp8266\Scripts\python.exe`              |
-
-Notes:
-- `idf.py` is invoked with the **esp8266 venv's** Python (`C:\Espressif\tools\python\esp8266`),
-  not the ESP-IDF v6 venv.
-- SDK git submodules are initialized (`lwip`, `mbedtls`, `json`, `mqtt`, `coap`). The nested
-  `coap/ext/tinydtls` submodule has a dead URL and must **not** be updated recursively.
+The project uses the Xtensa LX106 toolchain, CMake, Ninja, and the SDK's `idf.py` build system.
 
 ## Repository layout
 
-```
-CMakeLists.txt                  top-level ESP-IDF-style project file
-sdkconfig.defaults              build defaults (4 MB flash, FRC1 time)
-export.ps1                      dot-source for dev sessions: env + idf.py helper
-build.ps1                       build only
-flash.ps1                       build + flash + monitor (Port COM3 by default)
+```text
+CMakeLists.txt
+sdkconfig.defaults
+export.ps1
+build.ps1
+flash.ps1
+project.md
+
 components/
-  i2c_bus/                      shared I2C master (installs the bus once, used by OLED + RTC)
-  ssd1306/                      SSD1315-compatible 64x48 driver, framebuffer + 5x7 font
-  rtc/                          RTC detection + time/temp API (header: rtcdev.h!)
-  sdcard/                       SD-over-SPI (bit-banged) + FatFs diskio binding
+  i2c_bus/       Shared I2C master implementation
+  ssd1306/       SSD1315-compatible 64x48 display driver and 5x7 font
+  rtc/           RTC detection, read, write, and temperature API
+  sdcard/        Optional bit-banged SD SPI and FatFs diskio implementation
+
 main/
-  app_main.c                    application wiring, console, and display loop
+  app_main.c
+  Kconfig.projbuild
 ```
 
-## Components / APIs
+## Components
 
-### `i2c_bus` (shared I2C, `include/i2c_bus.h`)
-- `i2c_bus_init(sda_gpio, scl_gpio, clk_stretch_ticks)` — idempotent (`i2c_driver_install`
-  returning `ESP_FAIL` because already installed is treated as OK).
-- `i2c_bus_write_raw / write_reg / read_regs / probe`.
+### I2C bus
 
-### `ssd1306` (`include/ssd1306.h`)
-> Panel geometry lives in `include/ssd1306_config.h` (defaults: 64×48 = the D1 mini
-> OLED shield, **SSD1315** controller). For a 128×64 SSD1306 panel override
-> `SSD1306_WIDTH=128` / `SSD1306_HEIGHT=64` as compile definitions.
+Header: `components/i2c_bus/include/i2c_bus.h`
 
-- `ssd1306_init(i2c_addr)`, `ssd1306_clear/fill`, `ssd1306_draw_pixel/get_pixel`,
-  `ssd1306_draw_rect`, `ssd1306_draw_char/draw_string`, `ssd1306_refresh()`.
-- Uses a 384-byte framebuffer; `refresh()` uses the Adafruit-compatible 64x48 window
-  (`0x21`, columns 32..95; `0x22` page range) and 32-byte I2C data chunks.
+- Initializes I2C0 on GPIO4/GPIO5.
+- Supports raw writes, register writes, register reads, and device probing.
+- Shared by the OLED and RTC components.
 
-### `rtc` (`include/rtcdev.h`)
-> Header is named **`rtcdev.h`**, not `rtc.h`, because `components/esp8266/include/driver/rtc.h`
-> (the RTC-memory driver) shadows `rtc.h` on the include path.
+### OLED
 
-- `rtc_detect()` — probes `0x68` (DS3231, or DS1307 if the status register reads `0xFF`)
-  then `0x51` (PCF8563). Returns a `rtc_type_t`.
-- `rtc_get_time / rtc_set_time(rtc_time_t *)`, `rtc_get_temperature(&celsius)` (DS3231 only),
-  `rtc_present()`.
-- System clock is synced from the RTC at boot so FAT file timestamps are correct.
+Header: `components/ssd1306/include/ssd1306.h`
 
-### `sdcard` (`include/sd_card.h`)
-> The SDK's FatFs SD glue (`esp_vfs_fat_sdmmc_mount`) is only compiled for **esp32**, so
-> this component provides its own SPI + SD + FatFs diskio stack.
+Although the component retains the historical `ssd1306` name, it is configured for the SSD1315 64x48 panel.
 
-- Bit-banged full-duplex SPI (`src/sd_ll.c`): slow ~400 kHz clock during init,
-  fast after; CMD0/CMD8/ACMD41/CMD16/CMD9(+CSD decode)/CMD17/CMD24.
-- `src/sd_diskio.c` registers a `ff_diskio_impl_t` for a pdrv.
-- `sd_card_mount(&card, "/sdcard")` → mount + register VFS (`esp_vfs_fat_register` + `f_mount`);
-  `sd_card_unmount(&card)`.
-- Default pins if the struct GPIO fields are `< 0`: CS=15, SCK=14, MOSI=13, MISO=12.
+- 64x48 framebuffer: 384 bytes.
+- SSD1315/Adafruit-compatible GDDRAM window: columns 32 through 95.
+- I2C data is sent in 32-byte chunks.
+- Includes pixel, rectangle, character, string, clear, fill, and refresh APIs.
+- Uses a 5x7 ASCII font.
 
-## Application (`main/app_main.c`)
+Panel geometry and column offset are defined in:
 
-Boot sequence:
-1. `console_init()` — UART0 console for `SETTIME`/`TIME`/`HELP`.
-2. `i2c_bus_init(4, 5, 300)`
-3. `ssd1306_init(0x3C)` — display is optional; missing OLED is logged, not fatal.
-4. `rtc_detect()`; if present, initialize system time from the RTC.
-5. Optionally mount SD when `CONFIG_APP_ENABLE_SD=y`.
-6. Start `app_task` (4 KB stack) — 1 s loop:
-   - poll the serial console,
-   - display centered date and time.
-
-Optional CSV format (`/sdcard/log.csv`):
-```
-timestamp,temp_c
-2026-08-12 09:30:01,24.3
+```text
+components/ssd1306/include/ssd1306_config.h
 ```
 
-## Serial console
+### RTC
 
-Connect at 115200 baud (e.g. `idf.py -p COMx monitor`). Commands:
+Header: `components/rtc/include/rtcdev.h`
 
-| Command                      | Effect                                   |
-| ---------------------------- | ---------------------------------------- |
-| `SETTIME yyyy-mm-dd hh:mm:ss`| Write date/time to the RTC, resync OS clock, compute weekday |
-| `TIME`                       | Print the RTC's current date/time        |
-| `HELP`                       | List commands                            |
+- `rtc_detect()` probes supported RTC addresses.
+- `rtc_get_time()` reads the current date/time.
+- `rtc_set_time()` writes the date/time and calculates weekday externally.
+- `rtc_get_temperature()` supports DS3231 temperature readings.
 
-The console polls UART0 in the 1 s app task (RX buffer 256 B, no TX buffer).
+The header is named `rtcdev.h` because the SDK already contains `driver/rtc.h`.
 
-## SD logging
+### SD card
 
-SD initialization and CSV logging are disabled by default, so an empty SD slot
-does not produce warnings or display status text. To enable them, edit
-`sdkconfig` and set:
+Header: `components/sdcard/include/sd_card.h`
+
+The ESP8266 SDK does not provide the ESP32 SDMMC/FatFs glue, so this component implements SD SPI protocol support directly and registers a FatFs diskio driver.
+
+SD logging is disabled by default. Enable it in `sdkconfig`:
 
 ```ini
 CONFIG_APP_ENABLE_SD=y
 ```
 
-Then rebuild and flash with a FAT/FAT32 card inserted.
+When enabled, the card is mounted at `/sdcard` and readings are written to `/sdcard/log.csv`.
 
-## Build & flash
+## Application behavior
+
+At startup the application:
+
+1. Initializes the UART0 console at 115200 baud.
+2. Initializes the shared I2C bus.
+3. Initializes the SSD1315 OLED at address `0x3C`.
+4. Detects the RTC and initializes the system clock from it.
+5. Mounts the SD card only when `CONFIG_APP_ENABLE_SD=y`.
+6. Starts the display task.
+
+The OLED displays:
+
+- centered date on the first line,
+- centered time on the second line,
+- a border around the 64x48 display.
+
+## Serial console
+
+Use a serial monitor at 115200 baud. Commands:
+
+| Command | Description |
+| --- | --- |
+| `SETTIME yyyy-mm-dd hh:mm:ss` | Set the RTC and resynchronize the system clock |
+| `TIME` | Print the current RTC time |
+| `HELP` | Print the available commands |
+
+## Optional SD logging
+
+Enable SD support by setting:
+
+```ini
+CONFIG_APP_ENABLE_SD=y
+```
+
+Then insert a FAT/FAT32 card before booting. The CSV format is:
+
+```text
+timestamp,temp_c
+2026-08-12 09:30:01,24.3
+```
+
+## Build and flash
+
+From PowerShell:
 
 ```powershell
-. .\export.ps1        # load env once per session
-idf.py build          # build only
+. .\export.ps1
+idf.py build
+idf.py -p COMx flash monitor
+```
 
-# or one-shot:
+Alternatively:
+
+```powershell
 .\build.ps1
-.\flash.ps1 -Port COM3          # flash + monitor (default 115200 baud)
+.\flash.ps1 -Port COMx
 ```
 
-Equivalent manual command (after `export.ps1`):
+Replace `COMx` with the actual serial port, such as `COM5`.
 
-```powershell
-idf.py -p COM3 -b 460800 flash monitor
+Firmware image:
+
+```text
+build\esp8266_oled_rtc_sd.bin
 ```
 
-Flash layout: bootloader @ `0x0`, partition table @ `0x8000`, app @ `0x10000` —
-binary `build\esp8266_oled_rtc_sd.bin`.
+Flash layout:
 
-## Configuration (`sdkconfig.defaults`)
+```text
+Bootloader:       0x0000
+Partition table:  0x8000
+Application:      0x10000
+```
 
-- `CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y` — D1 mini ships with 4 MB flash.
-- `CONFIG_ESP8266_TIME_SYSCALL_USE_FRC1=y` — high-res timer backing `gettimeofday` /
-  FAT timestamps.
+## Configuration defaults
 
-Use `idf.py menuconfig` to inspect/adjust the generated `sdkconfig` (do not commit it).
+`sdkconfig.defaults` contains:
 
-## Known issues / decisions
+```ini
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESP8266_TIME_SYSCALL_USE_FRC1=y
+```
 
-- **RTC model:** `0x68` detection assumes DS3231 unless the status register reads `0xFF`,
-  then DS1307. Time read/write is identical for both. Temperature is DS3231-only.
-  If a shield uses another chip, extend `rtc.c` and `rtc_detect()`.
-- **SD speed:** bit-banging caps sustained throughput (~1 MHz data clock). Fine for burst
-  logging; not for streaming files at high rates.
-- **SD is disabled by default:** this avoids warnings and logging when no card is inserted.
-  Enable it with `CONFIG_APP_ENABLE_SD=y` in `sdkconfig`.
-- **`rtc_init` symbol / header names:** deliberately avoided (`rtc_detect`, `rtcdev.h`).
-- **Windows build prerequisites:** the build expects the toolchain/CMake/Ninja/mconf paths
-  listed above under `C:\Espressif\...`; adjust `export.ps1` if tools live elsewhere.
+The generated `sdkconfig` file is local configuration and should not be committed.
 
-## Changelog / todo
+## Verified status
 
-- [x] Initial scaffold + buildable firmware.
-- [x] On-target verification: OLED init, DS3231 detect, serial console `SETTIME`/`TIME`.
-- [x] Serial console to set the RTC time (`SETTIME yyyy-mm-dd hh:mm:ss`).
-- [x] OLED geometry, column offset, 32-byte I2C transfers, and centered date/time verified on hardware.
-- [ ] SD mount verified on hardware (disabled by default; requires a FAT/FAT32 card).
-- [ ] Optional: FAT formatting of an unformatted card at mount (`format_if_mount_failed`).
+- Project builds successfully with ESP8266_RTOS_SDK v3.4.
+- Firmware flashed successfully to the D1 mini on `COM5xx`.
+- SSD1315 64x48 OLED geometry and GDDRAM offset verified.
+- Centered date/time display verified.
+- DS3231 detected and time-setting console verified.
+- Optional SD logging remains untested because no card was available.

@@ -181,7 +181,7 @@ Alternatively:
 .\flash.ps1 -Port COMx
 ```
 
-Replace `COMx` with the actual serial port, such as `COM5`.
+Replace `COMxx` with the actual serial port.
 
 Firmware image:
 
@@ -211,7 +211,7 @@ The generated `sdkconfig` file is local configuration and should not be committe
 ## Verified status
 
 - Project builds successfully with ESP8266_RTOS_SDK v3.4.
-- Firmware flashed successfully to the D1 mini on `COM5xx`.
+- Firmware flashed successfully to the D1 mini.
 - SSD1315 64x48 OLED geometry and GDDRAM offset verified.
 - Centered date/time display verified.
 - DS3231 detected and time-setting console verified.

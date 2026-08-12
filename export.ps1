@@ -3,7 +3,7 @@
 #
 #   . .\export.ps1
 #   idf.py build
-#   idf.py -p COM3 flash monitor
+#   idf.py -p COMxx flash monitor
 
 $env:IDF_PATH = "C:\esp\ESP8266_RTOS_SDK"
 $python = "C:\Espressif\tools\python\esp8266\Scripts\python.exe"

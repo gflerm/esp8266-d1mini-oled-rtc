@@ -50,13 +50,13 @@ idf.py build
 idf.py -p COMx flash monitor
 ```
 
-Replace `COMx` with the board's serial port, for example `COM5`.
+Replace `COMxx` with the board's serial port.
 
 Convenience scripts are also provided:
 
 ```powershell
 .\build.ps1
-.\flash.ps1 -Port COM5
+.\flash.ps1 -Port COMxx
 ```
 
 The firmware image is generated at:
